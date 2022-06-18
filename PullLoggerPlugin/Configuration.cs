@@ -44,4 +44,5 @@ public class PullLoggerConfig
     public bool LogRecap { set; get; } = true;
     public int PullCount { get; set; } = 0;
     public string FilePath { get; set; } = "";
+    public DateTime? LastPull { get; set; } = null;
 }

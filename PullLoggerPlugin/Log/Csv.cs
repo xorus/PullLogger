@@ -1,18 +1,25 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Threading.Tasks;
 using Dalamud.Logging;
 
 namespace PullLogger.Log;
 
+// https://johandorper.com/log/thread-safe-file-writing-csharp
 public sealed class Csv : ILogBackend
 {
     public string FileName { get; set; } = "";
 
-    public void Log(PullRecord record)
+    private static async Task LogAsync(string fileName, PullRecord record)
     {
-        if (!File.Exists(FileName))
-            File.AppendAllText(FileName, "Event,Time,Pull,Duration,Clear,TerritoryType,ContentName\n");
+        var sw = new Stopwatch();
+        sw.Start();
+        if (!File.Exists(fileName))
+            await File.AppendAllTextAsync(fileName, "Event,Time,Pull,Duration,Clear,TerritoryType,ContentName\n");
+
+        // add lock for thread safety
 
         var eventStr = EventToString(record.EventName);
         var time = record.Time;
@@ -24,8 +31,15 @@ public sealed class Csv : ILogBackend
         var strClear = record.IsClear == true ? "1" : "0";
         var line =
             $"{eventStr},{time:yyyy-MM-dd HH:mm:ss},{strPull},{strDuration},{strClear},{strTerritoryType},{strContent}\n";
-        PluginLog.Information("CSV << " + line);
-        File.AppendAllText(FileName, line);
+        PluginLog.Debug("CSV << " + line);
+        await File.AppendAllTextAsync(fileName, line);
+        PluginLog.Debug("writing took " + sw.Elapsed);
+    }
+
+    public void Log(PullRecord record)
+    {
+        // avoid lag caused by slow IO like writing the log to a NAS
+        LogAsync(FileName, record).ConfigureAwait(false);
     }
 
     private static string EventToString(PullEvent eventName)

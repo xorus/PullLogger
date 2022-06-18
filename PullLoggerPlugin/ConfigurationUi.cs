@@ -77,7 +77,7 @@ public class ConfigurationUi
         if (len > 0 && _selected >= 0 && _selected < len)
             selected = _configuration.PullLoggers[_selected];
 
-        // if (!Visible) return;
+        if (!Visible) return;
 
         if (ImGui.Begin("PullLogger configuration", ref _visible, ImGuiWindowFlags.AlwaysAutoResize))
         {
@@ -91,7 +91,6 @@ public class ConfigurationUi
             if (ImGui.BeginTable("PullLoggers", 2,
                     ImGuiTableFlags.Resizable
                     | ImGuiTableFlags.BordersInnerV
-                    | ImGuiTableFlags.PadOuterX
                     | ImGuiTableFlags.SizingFixedFit))
             {
                 if (selected != null)
@@ -202,15 +201,17 @@ public class ConfigurationUi
     private bool _editPullCount;
     private bool _editTerritoryType;
 
-    private void Label(string str)
+    private static void Label(string str)
     {
-        ImGui.PushStyleVar(ImGuiStyleVar.Alpha, .7f);
-        ImGui.Text(str);
-        ImGui.PopStyleVar();
+        ImGui.TextDisabled(str);
     }
 
     private void DrawPullLoggerConfig(PullLoggerConfig plc)
     {
+        Label("Last logged pull:");
+        ImGui.SameLine();
+        ImGui.Text("(never)");
+        
         var pullCount = plc.PullCount;
         ImGui.AlignTextToFramePadding();
         Label("Current pull count:");
@@ -233,7 +234,7 @@ public class ConfigurationUi
             ImGui.PopItemWidth();
             ImGui.Unindent();
         }
-        
+
         var enabled = plc.Enabled;
         if (ImGui.Checkbox("Enable logging for this instance", ref enabled))
         {
@@ -309,7 +310,6 @@ public class ConfigurationUi
 
         if (_editTerritoryType)
         {
-            ImGui.Indent();
             var territoryType = (int)plc.TerritoryType;
             ImGui.TextWrapped(
                 $"You are currently in TerritoryType ID {_state.CurrentTerritoryType} :\n{_state.CurrentTerritoryName}");
@@ -320,8 +320,6 @@ public class ConfigurationUi
                 plc.TerritoryType = (ushort)territoryType;
                 _configuration.Save();
             }
-
-            ImGui.Unindent();
         }
     }
 }

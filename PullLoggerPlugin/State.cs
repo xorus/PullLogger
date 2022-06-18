@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using Dalamud.Game;
 using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Conditions;
@@ -19,8 +20,8 @@ public class State : IDisposable
     private readonly PartyList _partyList;
     private readonly TerritoryResolver _territoryResolver;
 
-    private bool _runUpdate = true;
-    // public event EventHandler<PullLoggerConfig?> PullLoggerChanged;
+    public bool _runUpdate = true;
+    public event EventHandler<PullLoggerConfig?> PullLoggerChanged;
 
     public State(Container container)
     {
@@ -54,7 +55,6 @@ public class State : IDisposable
     public ushort CurrentTerritoryType { get; private set; }
     public string CurrentTerritoryName { get; private set; } = "";
     public bool Pulling { get; private set; }
-    public TimeSpan PullDuration { get; private set; }
     public DateTime PullStart { get; private set; }
     public DateTime PullEnd { get; private set; }
     public PullLoggerConfig? CurrentPullLogger { get; private set; }
@@ -76,7 +76,7 @@ public class State : IDisposable
 
     private void DirectorEndEvent(object? sender, EndEventArgs e)
     {
-        PluginLog.Information("invoke combat end via director with " + e.IsClear);
+        // PluginLog.Information("invoke combat end via director with " + e.IsClear);
         EndCombat(e);
     }
 
@@ -91,32 +91,36 @@ public class State : IDisposable
 
     private void FindPullLogger()
     {
+        var oldPl = CurrentPullLogger;
         CurrentPullLogger = _configuration.PullLoggers.Find(x => x.TerritoryType.Equals(CurrentTerritoryType));
+        if (oldPl != CurrentPullLogger)
+        {
+            PullLoggerChanged?.Invoke(this, CurrentPullLogger);
+        }
     }
 
     private void EnterCombat()
     {
         PullStart = DateTime.Now;
-        PluginLog.Information("invoke combat start via clientstate");
+
+        var sw = new Stopwatch();
+        sw.Start();
         PullingEvent?.Invoke(this, new PullingEventArgs(true));
+        PluginLog.Debug("invoking start event took " + sw.Elapsed);
     }
 
     private void EndCombat(EndEventArgs? e = null)
     {
-        UpdateTime();
-        PullingEvent?.Invoke(this, new PullingEventArgs(false, e?.IsClear));
-    }
-
-    private void UpdateTime()
-    {
         PullEnd = DateTime.Now;
-        PullDuration = PullEnd - PullStart;
+        var sw = new Stopwatch();
+        sw.Start();
+        PullingEvent?.Invoke(this, new PullingEventArgs(false, e?.IsClear));
+        PluginLog.Debug("invoking end event took " + sw.Elapsed);
     }
 
     private void OnUpdate(Framework framework)
     {
-        if (!_runUpdate) return;
-
+        if (CurrentPullLogger == null) return;
         var prevInCombat = Pulling;
 
         Pulling = _condition[ConditionFlag.InCombat];
@@ -130,14 +134,10 @@ public class State : IDisposable
                 break;
             }
 
-        if (Pulling) UpdateTime();
+        if (Pulling) PullEnd = DateTime.Now;
         // ReSharper disable once ConvertIfStatementToSwitchStatement - sounds good, but it makes it unreadable
         if (!prevInCombat && Pulling) EnterCombat();
-        if (!_duh.Available && prevInCombat && !Pulling)
-        {
-            EndCombat();
-            PluginLog.Information("end via client ");
-        }
+        if (!_duh.Available && prevInCombat && !Pulling) EndCombat();
     }
 
     private void ConditionOnConditionChange(ConditionFlag flag, bool value)

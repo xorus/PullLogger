@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using Dalamud.Logging;
 using Dalamud.Utility;
 
@@ -9,7 +10,8 @@ public sealed class Logger : IDisposable
     private readonly Configuration _configuration;
     private readonly Csv _csv;
     private readonly State _state;
-    private PullLoggerConfig? _lastPullLogger;
+    private PullLoggerConfig? _cpl;
+    private PullLoggerConfig? _lastCpl;
 
     private bool _combatStartLogged;
 
@@ -19,35 +21,43 @@ public sealed class Logger : IDisposable
         _state.PullingEvent += OnPullingEvent;
         _configuration = container.Resolve<Configuration>();
         _csv = container.Resolve<Csv>();
+        _state.PullLoggerChanged += StateOnPullLoggerChanged;
+
+        UpdatePullLogger();
     }
+
+    private void StateOnPullLoggerChanged(object? sender, PullLoggerConfig? e) => UpdatePullLogger();
+
+    private void UpdatePullLogger()
+    {
+        // var sw = new Stopwatch();
+        // sw.Start();
+        var cpl = _state.CurrentPullLogger;
+        _cpl = cpl;
+        if (cpl == null) return;
+        if (_csv.FileName != cpl.FilePath) UpdateFileName(cpl);
+        if (_csv.FileName.IsNullOrEmpty())
+            PluginLog.Warning($"No file name for current pull logger {cpl.TerritoryType}");
+        _lastCpl = cpl;
+        // PluginLog.Debug("UPL took " + sw.Elapsed);
+    }
+
 
     public void Dispose()
     {
         _state.PullingEvent -= OnPullingEvent;
-    }
-
-    private PullLoggerConfig? UpdatePullLogger()
-    {
-        var cpl = _state.CurrentPullLogger;
-        _lastPullLogger = cpl;
-        if (cpl == null) return null;
-        if (_csv.FileName != cpl.FilePath) UpdateFileName(cpl);
-        if (_csv.FileName.IsNullOrEmpty())
-            PluginLog.Warning($"No file name for current pull logger {cpl.TerritoryType}");
-
-        return cpl;
+        _state.PullLoggerChanged -= StateOnPullLoggerChanged;
     }
 
     private void OnPullingEvent(object? sender, State.PullingEventArgs args)
     {
-        PluginLog.Information("pull" + args.InCombat);
-        var cpl = UpdatePullLogger();
-        if (cpl == null) return;
-
+        if (_cpl == null) return;
+        // var sw = new Stopwatch();
+        // sw.Start();
         if (!_combatStartLogged && args.InCombat)
         {
             // We're in combat, so log the start of the combat
-            if (cpl.LogCombatStart)
+            if (_cpl.LogCombatStart)
                 _csv.Log(new PullRecord
                 {
                     EventName = PullEvent.Start,
@@ -57,13 +67,13 @@ public sealed class Logger : IDisposable
 
             _combatStartLogged = true;
             // increment pull count
-            cpl.PullCount++;
+            _cpl.PullCount++;
             _configuration.Save();
         }
 
         if (!_combatStartLogged || args.InCombat) return;
         // log combat end
-        if (cpl.LogCombatEnd)
+        if (_cpl.LogCombatEnd)
             _csv.Log(new PullRecord
             {
                 EventName = PullEvent.End,
@@ -72,19 +82,22 @@ public sealed class Logger : IDisposable
                 IsClear = args.IsClear
             });
 
-        if (cpl.LogRecap)
+        if (_cpl.LogRecap)
             _csv.Log(new PullRecord
             {
                 EventName = PullEvent.Pull,
                 Time = _state.PullStart,
-                Pull = cpl.PullCount,
+                Pull = _cpl.PullCount,
                 Duration = _state.PullEnd - _state.PullStart,
                 ContentName = _state.CurrentTerritoryName,
                 TerritoryType = _state.CurrentTerritoryType,
                 IsClear = args.IsClear
             });
-
+        _cpl.LastPull = DateTime.Now;
+        _configuration.Save();
         _combatStartLogged = false;
+        // sw.Stop();
+        // PluginLog.Debug("Logger took " + sw.Elapsed);
     }
 
     /**
@@ -92,15 +105,11 @@ public sealed class Logger : IDisposable
      */
     public void RetCon()
     {
-        if (_lastPullLogger == null && UpdatePullLogger() == null)
-        {
-            throw new RetconError("could not find relevant instance config");
-        }
-
-        if (_lastPullLogger == null) return; // should not be null at this point
+        var cpl = _cpl ?? _lastCpl;
+        if (cpl == null) throw new RetconError("could not find relevant instance config");
 
         _csv.RetCon();
-        _lastPullLogger.PullCount -= 1;
+        cpl.PullCount -= 1;
         _configuration.Save();
     }
 

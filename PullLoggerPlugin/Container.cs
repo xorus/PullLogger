@@ -31,10 +31,6 @@ public class Container
     public void DoDispose()
     {
         _disposables.Reverse();
-        foreach (var disposable in _disposables)
-        {
-            PluginLog.Information("dispose " + disposable.GetType());
-            disposable.Dispose();
-        }
+        foreach (var disposable in _disposables) disposable.Dispose();
     }
 }
