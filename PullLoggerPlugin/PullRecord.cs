@@ -3,7 +3,7 @@
 namespace PullLogger;
 
 public readonly record struct PullRecord(
-    string EventName,
+    PullEvent EventName,
     DateTime? Time,
     int? Pull,
     ushort? TerritoryType,
@@ -11,3 +11,11 @@ public readonly record struct PullRecord(
     string? ContentName,
     bool? IsClear
 );
+
+public enum PullEvent
+{
+    Start,
+    End,
+    Pull,
+    RetCon
+}

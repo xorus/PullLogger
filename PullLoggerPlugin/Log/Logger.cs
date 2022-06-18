@@ -4,11 +4,12 @@ using Dalamud.Utility;
 
 namespace PullLogger.Log;
 
-public class Logger : IDisposable
+public sealed class Logger : IDisposable
 {
     private readonly Configuration _configuration;
     private readonly Csv _csv;
     private readonly State _state;
+    private PullLoggerConfig? _lastPullLogger;
 
     private bool _combatStartLogged;
 
@@ -25,14 +26,23 @@ public class Logger : IDisposable
         _state.PullingEvent -= OnPullingEvent;
     }
 
-    private void OnPullingEvent(object? sender, State.PullingEventArgs args)
+    private PullLoggerConfig? UpdatePullLogger()
     {
-        PluginLog.Information("pull" + args.InCombat);
         var cpl = _state.CurrentPullLogger;
-        if (cpl == null) return;
+        _lastPullLogger = cpl;
+        if (cpl == null) return null;
         if (_csv.FileName != cpl.FilePath) UpdateFileName(cpl);
         if (_csv.FileName.IsNullOrEmpty())
             PluginLog.Warning($"No file name for current pull logger {cpl.TerritoryType}");
+
+        return cpl;
+    }
+
+    private void OnPullingEvent(object? sender, State.PullingEventArgs args)
+    {
+        PluginLog.Information("pull" + args.InCombat);
+        var cpl = UpdatePullLogger();
+        if (cpl == null) return;
 
         if (!_combatStartLogged && args.InCombat)
         {
@@ -40,7 +50,7 @@ public class Logger : IDisposable
             if (cpl.LogCombatStart)
                 _csv.Log(new PullRecord
                 {
-                    EventName = "start",
+                    EventName = PullEvent.Start,
                     ContentName = _state.CurrentTerritoryName,
                     TerritoryType = _state.CurrentTerritoryType
                 });
@@ -56,7 +66,7 @@ public class Logger : IDisposable
         if (cpl.LogCombatEnd)
             _csv.Log(new PullRecord
             {
-                EventName = "end",
+                EventName = PullEvent.End,
                 ContentName = _state.CurrentTerritoryName,
                 TerritoryType = _state.CurrentTerritoryType,
                 IsClear = args.IsClear
@@ -65,7 +75,8 @@ public class Logger : IDisposable
         if (cpl.LogRecap)
             _csv.Log(new PullRecord
             {
-                EventName = "pull",
+                EventName = PullEvent.Pull,
+                Time = _state.PullStart,
                 Pull = cpl.PullCount,
                 Duration = _state.PullEnd - _state.PullStart,
                 ContentName = _state.CurrentTerritoryName,
@@ -76,8 +87,22 @@ public class Logger : IDisposable
         _combatStartLogged = false;
     }
 
-    private void UpdateFileName(PullLoggerConfig pl)
+    /**
+     * does not update the current logger to allow you retconing a pull immediately after leaving the instance
+     */
+    public void RetCon()
     {
-        _csv.FileName = pl.FilePath;
+        if (_lastPullLogger == null && UpdatePullLogger() == null)
+        {
+            throw new RetconError("could not find relevant instance config");
+        }
+
+        if (_lastPullLogger == null) return; // should not be null at this point
+
+        _csv.RetCon();
+        _lastPullLogger.PullCount -= 1;
+        _configuration.Save();
     }
+
+    private void UpdateFileName(PullLoggerConfig pl) => _csv.FileName = pl.FilePath;
 }

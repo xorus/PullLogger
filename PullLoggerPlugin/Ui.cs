@@ -13,19 +13,12 @@ internal class Ui : IDisposable
         _state = container.Resolve<State>();
     }
 
-    public bool Visible { get; set; } = false;
-
     public void Dispose()
     {
     }
 
     public void Draw()
     {
-        // if (!Visible)
-        // {
-        //     return;
-        // }
-
         if (_state.CurrentPullLogger is not { Visible: true }) return;
 
         if (ImGui.Begin(

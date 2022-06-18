@@ -29,6 +29,7 @@
 
     <ItemGroup>
         <PackageReference Include="DalamudPackager" Version="2.1.6" />
+        <PackageReference Include="Slugify.Core" Version="3.0.0" />
     </ItemGroup>
 
     <ItemGroup>
