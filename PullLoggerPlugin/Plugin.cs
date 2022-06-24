@@ -4,6 +4,7 @@ using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Party;
 using Dalamud.Game.Command;
+using Dalamud.Game.Gui;
 using Dalamud.Plugin;
 using PullLogger.Events;
 using PullLogger.Log;
@@ -19,13 +20,15 @@ public sealed class Plugin : IDalamudPlugin
         ClientState clientState,
         PartyList partyList,
         DataManager dataManager,
-        Condition condition)
+        Condition condition,
+        ChatGui chat)
     {
         PluginInterface = pluginInterface;
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.Initialize(PluginInterface);
 
         Container = new Container();
+        Container.Register(this);
         Container.Register(partyList);
         Container.Register(framework);
         Container.Register(clientState);
@@ -33,6 +36,8 @@ public sealed class Plugin : IDalamudPlugin
         Container.Register(commandManager);
         Container.Register(Configuration);
         Container.Register(dataManager);
+        Container.Register(pluginInterface.UiBuilder);
+        Container.Register(chat);
 
         // you might normally want to embed resources and load them from the manifest stream
         // var imagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");

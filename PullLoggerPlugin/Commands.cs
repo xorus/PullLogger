@@ -1,5 +1,6 @@
 ﻿using System;
 using Dalamud.Game.Command;
+using Dalamud.Game.Gui;
 using Dalamud.Logging;
 using PullLogger.Log;
 
@@ -10,10 +11,12 @@ public sealed class Commands : IDisposable
     // private const string UiCommand = "/pplogui";
     private const string ConfigCommand = "/pplog";
     private const string Tab = "   ";
+    private readonly string _prefix;
 
     public Commands(Container container)
     {
         Container = container;
+        _prefix = $"[{container.Resolve<Plugin>().Name}] ";
         CommandManager = container.Resolve<CommandManager>();
         CommandManager.AddHandler(ConfigCommand, new CommandInfo(OnPPLogCommand)
         {
@@ -40,23 +43,42 @@ public sealed class Commands : IDisposable
 
     private void OnPPLogCommand(string command, string args)
     {
-        // in response to the slash command, just display our main ui
-        // Ui.Visible = true;
-        if (args == "retcon")
+        var chat = Container.Resolve<ChatGui>();
+
+        switch (args.ToLower())
         {
-            try
-            {
-                Container.Resolve<Logger>().RetCon();
-            }
-            catch (RetconError e)
-            {
-                PluginLog.Error("Could not remove last pull: " + e.Reason);
-            }
+            case "retcon":
+                try
+                {
+                    Container.Resolve<Logger>().RetCon();
+                    chat.Print(_prefix + "We'll pretend like nothing happened.");
+                }
+                catch (RetconError e)
+                {
+                    var message = "Could not remove last pull: " + e.Reason;
+                    PluginLog.Error(message);
+                    chat.PrintError(_prefix + message);
+                }
 
-            return;
+                return;
+            case "unretcon":
+                try
+                {
+                    Container.Resolve<Logger>().UnRetCon();
+                    chat.Print(_prefix + "We'll stop pretending like nothing happened.");
+                }
+                catch (RetconError e)
+                {
+                    var message = "Could not un-remove last pull: " + e.Reason;
+                    PluginLog.Error(message);
+                    chat.PrintError(_prefix + message);
+                }
+
+                return;
+            default:
+                Container.Resolve<ConfigurationUi>().Visible = true;
+                break;
         }
-
-        Container.Resolve<ConfigurationUi>().Visible = true;
     }
     // private void OnPPLogUiCommand(string command, string args)
     // {

@@ -39,6 +39,7 @@ public sealed class Csv : ILogBackend
     public void Log(PullRecord record)
     {
         // avoid lag caused by slow IO like writing the log to a NAS
+        // TODO: handle onedrive errors
         LogAsync(FileName, record).ConfigureAwait(false);
     }
 
@@ -54,17 +55,17 @@ public sealed class Csv : ILogBackend
         };
     }
 
-    public void RetCon()
+    private void ReplaceLastTypeBy(string find, string replace)
     {
         if (!File.Exists(FileName)) throw new RetconError { Reason = "file " + FileName + " does not exist" };
         try
         {
             var lines = File.ReadAllLines(FileName);
-            var findText = EventToString(PullEvent.Pull) + ",";
+            var findText = find + ",";
             for (var i = lines.Length - 1; i >= 0; i--)
             {
                 if (!lines[i].StartsWith(findText)) continue;
-                lines[i] = EventToString(PullEvent.RetCon) + "," + lines[i][findText.Length..];
+                lines[i] = replace + "," + lines[i][findText.Length..];
                 File.WriteAllLines(FileName, lines);
                 return;
             }
@@ -74,6 +75,9 @@ public sealed class Csv : ILogBackend
             throw new RetconError { Reason = e.Message };
         }
 
-        throw new RetconError { Reason = "could not find a pull to retcon" };
+        throw new RetconError { Reason = "no relevant pull found" };
     }
+
+    public void RetCon() => ReplaceLastTypeBy("pull", "retcon");
+    public void UnRetCon() => ReplaceLastTypeBy("retcon", "pull");
 }

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
+using Dalamud.Interface;
+using Dalamud.Interface.Internal.Notifications;
 using Dalamud.Logging;
 using Dalamud.Utility;
 
@@ -14,6 +16,7 @@ public sealed class Logger : IDisposable
     private PullLoggerConfig? _lastCpl;
 
     private bool _combatStartLogged;
+    private readonly UiBuilder _uiBuilder;
 
     public Logger(Container container)
     {
@@ -22,6 +25,7 @@ public sealed class Logger : IDisposable
         _configuration = container.Resolve<Configuration>();
         _csv = container.Resolve<Csv>();
         _state.PullLoggerChanged += StateOnPullLoggerChanged;
+        _uiBuilder = container.Resolve<UiBuilder>();
 
         UpdatePullLogger();
     }
@@ -97,7 +101,14 @@ public sealed class Logger : IDisposable
                 IsClear = args.IsClear,
                 IsValid = valid
             });
-            if (!valid) _cpl.PullCount--;
+            if (!valid)
+            {
+                _uiBuilder.AddNotification(
+                    "The last pull lasted " + duration.TotalSeconds.ToString("N1") +
+                    "s, which is below the configured threshold.", "Pull was invalidated",
+                    NotificationType.Warning, 6000U);
+                _cpl.PullCount--;
+            }
         }
 
         _cpl.LastPull = DateTime.Now;
@@ -112,11 +123,26 @@ public sealed class Logger : IDisposable
      */
     public void RetCon()
     {
+        if (_cpl == null && _lastCpl == null) UpdatePullLogger();
         var cpl = _cpl ?? _lastCpl;
         if (cpl == null) throw new RetconError("could not find relevant instance config");
 
         _csv.RetCon();
         cpl.PullCount -= 1;
+        _configuration.Save();
+    }
+
+    /**
+     * does not update the current logger to allow you retconing a pull immediately after leaving the instance
+     */
+    public void UnRetCon()
+    {
+        if (_cpl == null && _lastCpl == null) UpdatePullLogger();
+        var cpl = _cpl ?? _lastCpl;
+        if (cpl == null) throw new RetconError("could not find relevant instance config");
+
+        _csv.UnRetCon();
+        cpl.PullCount += 1;
         _configuration.Save();
     }
 
