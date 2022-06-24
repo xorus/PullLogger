@@ -83,6 +83,9 @@ public sealed class Logger : IDisposable
             });
 
         if (_cpl.LogRecap)
+        {
+            var duration = _state.PullEnd - _state.PullStart;
+            var valid = _cpl.AutoInvalidate <= 0 || duration.TotalSeconds > _cpl.AutoInvalidate;
             _csv.Log(new PullRecord
             {
                 EventName = PullEvent.Pull,
@@ -91,8 +94,12 @@ public sealed class Logger : IDisposable
                 Duration = _state.PullEnd - _state.PullStart,
                 ContentName = _state.CurrentTerritoryName,
                 TerritoryType = _state.CurrentTerritoryType,
-                IsClear = args.IsClear
+                IsClear = args.IsClear,
+                IsValid = valid
             });
+            if (!valid) _cpl.PullCount--;
+        }
+
         _cpl.LastPull = DateTime.Now;
         _configuration.Save();
         _combatStartLogged = false;

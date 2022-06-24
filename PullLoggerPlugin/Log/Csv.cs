@@ -21,7 +21,7 @@ public sealed class Csv : ILogBackend
 
         // add lock for thread safety
 
-        var eventStr = EventToString(record.EventName);
+        var eventStr = EventToString(record.EventName, record.IsValid);
         var time = record.Time;
         time ??= DateTime.Now;
         var strPull = record.Pull?.ToString() ?? "";
@@ -42,13 +42,13 @@ public sealed class Csv : ILogBackend
         LogAsync(FileName, record).ConfigureAwait(false);
     }
 
-    private static string EventToString(PullEvent eventName)
+    private static string EventToString(PullEvent eventName, bool isValid = true)
     {
         return eventName switch
         {
             PullEvent.Start => "start",
             PullEvent.End => "end",
-            PullEvent.Pull => "pull",
+            PullEvent.Pull => isValid ? "pull" : "invalid",
             PullEvent.RetCon => "retcon",
             _ => throw new ArgumentOutOfRangeException(nameof(eventName), eventName, null)
         };

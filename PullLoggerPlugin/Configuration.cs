@@ -45,4 +45,5 @@ public class PullLoggerConfig
     public int PullCount { get; set; } = 0;
     public string FilePath { get; set; } = "";
     public DateTime? LastPull { get; set; } = null;
+    public float AutoInvalidate { get; set; } = 0f;
 }

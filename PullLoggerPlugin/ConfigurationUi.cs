@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Numerics;
 using Dalamud.Interface;
@@ -210,8 +211,8 @@ public class ConfigurationUi
     {
         Label("Last logged pull:");
         ImGui.SameLine();
-        ImGui.Text("(never)");
-        
+        ImGui.Text(plc.LastPull != null ? plc.LastPull.Value.ToString("F", CultureInfo.CurrentCulture) : "(never)");
+
         var pullCount = plc.PullCount;
         ImGui.AlignTextToFramePadding();
         Label("Current pull count:");
@@ -303,6 +304,20 @@ public class ConfigurationUi
             plc.LogRecap = logRecap;
             _configuration.Save();
         }
+
+        ImGui.AlignTextToFramePadding();
+        Label("Invalidate pulls below:");
+        var autoInvalidate = plc.AutoInvalidate;
+        ImGui.SameLine();
+        ImGui.PushItemWidth(100f);
+        if (ImGui.InputFloat("seconds " + (autoInvalidate <= 0 ? "(disabled)" : "") + "##AutoInvalidate",
+                ref autoInvalidate, 1f, 5f, "%.1f"))
+        {
+            plc.AutoInvalidate = Math.Max(0, autoInvalidate);
+            _configuration.Save();
+        }
+
+        ImGui.PopItemWidth();
 
         ImGui.NewLine();
 
