@@ -61,7 +61,7 @@ public sealed unsafe class EndViaDirectorUpdateHook : IDisposable
         }
         catch (Exception ex)
         {
-            PluginLog.Error(ex, "Failed to get Duty Started Status");
+            PluginLog.Error(ex, "Failed to get duty event");
         }
 
         return _dutyEventHook!.Original(a1, a2, a3);
