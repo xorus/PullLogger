@@ -1,6 +1,7 @@
 ﻿using System;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui;
+using Dalamud.Game.Text;
 using Dalamud.Logging;
 using PullLogger.Log;
 
@@ -44,14 +45,15 @@ public sealed class Commands : IDisposable
     private void OnPPLogCommand(string command, string args)
     {
         var chat = Container.Resolve<ChatGui>();
-
         switch (args.ToLower())
         {
             case "retcon":
                 try
                 {
-                    Container.Resolve<Logger>().RetCon();
-                    chat.Print(_prefix + "We'll pretend like nothing happened.");
+                    Container.Resolve<Logger>().Retcon();
+                    chat.Print($"{_prefix}We'll pretend like nothing happened.");
+                    chat.Print($"{_prefix}{SeIconChar.ArrowRight.ToIconChar()} " +
+                               $"Current pull number has been decreased by one.");
                 }
                 catch (RetconError e)
                 {
@@ -64,8 +66,11 @@ public sealed class Commands : IDisposable
             case "unretcon":
                 try
                 {
-                    Container.Resolve<Logger>().UnRetCon();
-                    chat.Print(_prefix + "We'll stop pretending like nothing happened.");
+                    Container.Resolve<Logger>().UnRetcon();
+                    chat.Print($"{_prefix}We'll stop pretending like nothing happened.");
+                    chat.Print($"{_prefix}{SeIconChar.ArrowRight.ToIconChar()} " +
+                               $"Current pull number has been increased by one.");
+                    chat.Print($"{_prefix}※ pull number cannot be automatically updated.");
                 }
                 catch (RetconError e)
                 {

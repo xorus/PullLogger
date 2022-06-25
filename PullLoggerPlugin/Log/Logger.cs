@@ -92,14 +92,13 @@ public sealed class Logger : IDisposable
             var valid = _cpl.AutoInvalidate <= 0 || duration.TotalSeconds > _cpl.AutoInvalidate;
             _csv.Log(new PullRecord
             {
-                EventName = PullEvent.Pull,
+                EventName = valid ? PullEvent.Pull : PullEvent.InvalidPull,
                 Time = _state.PullStart,
                 Pull = _cpl.PullCount,
                 Duration = _state.PullEnd - _state.PullStart,
                 ContentName = _state.CurrentTerritoryName,
                 TerritoryType = _state.CurrentTerritoryType,
-                IsClear = args.IsClear,
-                IsValid = valid
+                IsClear = args.IsClear
             });
             if (!valid)
             {
@@ -121,13 +120,13 @@ public sealed class Logger : IDisposable
     /**
      * does not update the current logger to allow you retconing a pull immediately after leaving the instance
      */
-    public void RetCon()
+    public void Retcon()
     {
         if (_cpl == null && _lastCpl == null) UpdatePullLogger();
         var cpl = _cpl ?? _lastCpl;
         if (cpl == null) throw new RetconError("could not find relevant instance config");
 
-        _csv.RetCon();
+        _csv.Retcon();
         cpl.PullCount -= 1;
         _configuration.Save();
     }
@@ -135,13 +134,13 @@ public sealed class Logger : IDisposable
     /**
      * does not update the current logger to allow you retconing a pull immediately after leaving the instance
      */
-    public void UnRetCon()
+    public void UnRetcon()
     {
         if (_cpl == null && _lastCpl == null) UpdatePullLogger();
         var cpl = _cpl ?? _lastCpl;
         if (cpl == null) throw new RetconError("could not find relevant instance config");
 
-        _csv.UnRetCon();
+        _csv.UnRetcon();
         cpl.PullCount += 1;
         _configuration.Save();
     }

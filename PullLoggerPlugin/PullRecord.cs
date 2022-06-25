@@ -9,8 +9,7 @@ public readonly record struct PullRecord(
     ushort? TerritoryType,
     TimeSpan? Duration,
     string? ContentName,
-    bool? IsClear,
-    bool IsValid = true
+    bool? IsClear
 );
 
 public enum PullEvent
@@ -18,5 +17,6 @@ public enum PullEvent
     Start,
     End,
     Pull,
-    RetCon
+    RetconnedPull,
+    InvalidPull
 }

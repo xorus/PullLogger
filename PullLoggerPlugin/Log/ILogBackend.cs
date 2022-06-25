@@ -7,10 +7,10 @@ public interface ILogBackend
     /**
      * Removes the last pull event.
      */
-    public void RetCon();
+    public void Retcon();
     
     /**
      * If you goofed up.
      */
-    public void UnRetCon();
+    public void UnRetcon();
 }

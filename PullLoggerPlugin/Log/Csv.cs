@@ -21,7 +21,7 @@ public sealed class Csv : ILogBackend
 
         // add lock for thread safety
 
-        var eventStr = EventToString(record.EventName, record.IsValid);
+        var eventStr = EventToString(record.EventName);
         var time = record.Time;
         time ??= DateTime.Now;
         var strPull = record.Pull?.ToString() ?? "";
@@ -43,14 +43,15 @@ public sealed class Csv : ILogBackend
         LogAsync(FileName, record).ConfigureAwait(false);
     }
 
-    private static string EventToString(PullEvent eventName, bool isValid = true)
+    private static string EventToString(PullEvent eventName)
     {
         return eventName switch
         {
             PullEvent.Start => "start",
             PullEvent.End => "end",
-            PullEvent.Pull => isValid ? "pull" : "invalid",
-            PullEvent.RetCon => "retcon",
+            PullEvent.Pull =>"pull",
+            PullEvent.RetconnedPull => "retcon",
+            PullEvent.InvalidPull => "invalid",
             _ => throw new ArgumentOutOfRangeException(nameof(eventName), eventName, null)
         };
     }
@@ -78,6 +79,6 @@ public sealed class Csv : ILogBackend
         throw new RetconError { Reason = "no relevant pull found" };
     }
 
-    public void RetCon() => ReplaceLastTypeBy("pull", "retcon");
-    public void UnRetCon() => ReplaceLastTypeBy("retcon", "pull");
+    public void Retcon() => ReplaceLastTypeBy("pull", "retcon");
+    public void UnRetcon() => ReplaceLastTypeBy("retcon", "pull");
 }
