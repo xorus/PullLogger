@@ -5,19 +5,17 @@ using System.Numerics;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.ImGuiFileDialog;
-using Dalamud.Logging;
 using ImGuiNET;
-using Newtonsoft.Json.Serialization;
 using PullLogger.Events;
+using PullLogger.Interface;
 
-namespace PullLogger;
+namespace PullLogger.Ui;
 
 public class ConfigurationUi
 {
     private readonly Configuration _configuration;
-    private readonly EndViaDirectorUpdateHook _duh;
-    private readonly TerritoryResolver _resolver;
-    private readonly State _state;
+    private readonly ITerritoryResolver _resolver;
+    private readonly State.StateData _stateData;
 
     private int _selected;
     private bool _visible = false;
@@ -26,9 +24,8 @@ public class ConfigurationUi
     public ConfigurationUi(Container container)
     {
         _configuration = container.Resolve<Configuration>();
-        _state = container.Resolve<State>();
-        _resolver = container.Resolve<TerritoryResolver>();
-        _duh = container.Resolve<EndViaDirectorUpdateHook>();
+        _stateData = container.Resolve<State.StateData>();
+        _resolver = container.Resolve<ITerritoryResolver>();
 
         Fdm = new FileDialogManager();
     }
@@ -88,7 +85,7 @@ public class ConfigurationUi
             ImGui.Separator();
 
             const int firstRowWidth = 100;
-            const int iconBtnWidth = 35;
+            // const int iconBtnWidth = 35;
             if (ImGui.BeginTable("PullLoggers", 2,
                     ImGuiTableFlags.Resizable
                     | ImGuiTableFlags.BordersInnerV
@@ -137,7 +134,7 @@ public class ConfigurationUi
                 {
                     _configuration.PullLoggers.Add(new PullLoggerConfig
                     {
-                        TerritoryType = _state.CurrentTerritoryType
+                        TerritoryType = _stateData.CurrentTerritoryType
                     });
                     _selected = _configuration.PullLoggers.Count - 1;
                     _configuration.Save();
@@ -327,7 +324,7 @@ public class ConfigurationUi
         {
             var territoryType = (int)plc.TerritoryType;
             ImGui.TextWrapped(
-                $"You are currently in TerritoryType ID {_state.CurrentTerritoryType} :\n{_state.CurrentTerritoryName}");
+                $"You are currently in TerritoryType ID {_stateData.CurrentTerritoryType} :\n{_stateData.CurrentTerritoryName}");
             if (ImGui.InputInt("Territory Type ID", ref territoryType))
             {
                 if (territoryType < ushort.MinValue) territoryType = ushort.MinValue;

@@ -1,10 +1,11 @@
 ﻿using Dalamud.Data;
 using Lumina.Excel;
 using Lumina.Excel.GeneratedSheets;
+using PullLogger.Interface;
 
-namespace PullLogger;
+namespace PullLogger.Dalamud;
 
-public class TerritoryResolver
+public class TerritoryResolver : ITerritoryResolver
 {
     private readonly ExcelSheet<TerritoryType>? _territoryTypeSheet;
 

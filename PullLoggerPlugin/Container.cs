@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using JetBrains.Annotations;
 
 namespace PullLogger;
 
@@ -11,15 +12,30 @@ public class Container
     private readonly Dictionary<Type, object> _container = new();
     private readonly List<IDisposable> _disposables = new();
 
-    public void Register<TRegister>(TRegister instance) where TRegister : class
+    public TRegister Register<TRegister>(TRegister instance) where TRegister : class
     {
         _container.Add(typeof(TRegister), instance);
+        return instance;
     }
 
-    public void RegisterDisposable<TRegister>(TRegister instance) where TRegister : IDisposable
+    public TRegister Register<[MeansImplicitUse] TRegister>() where TRegister : class
+    {
+        var instance = (TRegister)Activator.CreateInstance(typeof(TRegister), this)!;
+        return Register(instance);
+    }
+
+    public TRegister RegisterDisposable<TRegister>(TRegister instance) where TRegister : IDisposable
     {
         _container.Add(typeof(TRegister), instance);
         _disposables.Add(instance);
+        return instance;
+    }
+
+    // next level lazy
+    public TRegister RegisterDisposable<[MeansImplicitUse] TRegister>() where TRegister : IDisposable
+    {
+        var instance = (TRegister)Activator.CreateInstance(typeof(TRegister), this)!;
+        return RegisterDisposable(instance);
     }
 
     public TRegister Resolve<TRegister>() where TRegister : class

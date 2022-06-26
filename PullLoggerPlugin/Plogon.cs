@@ -6,14 +6,27 @@ using Dalamud.Game.ClientState.Party;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui;
 using Dalamud.Plugin;
+using JetBrains.Annotations;
+using PullLogger.Dalamud;
 using PullLogger.Events;
+using PullLogger.Interface;
 using PullLogger.Log;
+using PullLogger.State;
+using PullLogger.Ui;
 
 namespace PullLogger;
 
-public sealed class Plugin : IDalamudPlugin
+[UsedImplicitly]
+public sealed class Plogon : IDalamudPlugin
 {
-    public Plugin(
+    private Configuration Configuration { get; }
+    private Ui.Ui Ui { get; }
+    private ConfigurationUi ConfigurationUi { get; }
+    private Container Container { get; }
+    public string Name => "PullLogger";
+    private readonly DalamudPluginInterface _pluginInterface;
+
+    public Plogon(
         DalamudPluginInterface pluginInterface,
         CommandManager commandManager,
         Framework framework,
@@ -23,12 +36,11 @@ public sealed class Plugin : IDalamudPlugin
         Condition condition,
         ChatGui chat)
     {
-        PluginInterface = pluginInterface;
-        Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-        Configuration.Initialize(PluginInterface);
+        _pluginInterface = pluginInterface;
+        Configuration = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration.Initialize(_pluginInterface.SavePluginConfig);
 
         Container = new Container();
-        Container.Register(this);
         Container.Register(partyList);
         Container.Register(framework);
         Container.Register(clientState);
@@ -38,16 +50,18 @@ public sealed class Plugin : IDalamudPlugin
         Container.Register(dataManager);
         Container.Register(pluginInterface.UiBuilder);
         Container.Register(chat);
+        Container.Register<IToaster>(new DalamudNotification(pluginInterface.UiBuilder));
 
         // you might normally want to embed resources and load them from the manifest stream
         // var imagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
         // var goatImage = PluginInterface.UiBuilder.LoadImage(imagePath);
 
         Container.RegisterDisposable(new EndViaDirectorUpdateHook());
-        Container.Register(new TerritoryResolver(Container));
-        Container.RegisterDisposable(new State(Container));
+        Container.Register<ITerritoryResolver>(new TerritoryResolver(Container));
+        Container.Register(new StateData());
+        Container.Register(new StateUpdater(Container));
 
-        Ui = new Ui(Container);
+        Ui = new Ui.Ui(Container);
         ConfigurationUi = new ConfigurationUi(Container);
 
         Container.RegisterDisposable(Ui);
@@ -57,21 +71,14 @@ public sealed class Plugin : IDalamudPlugin
         Container.Register(new Csv());
         Container.RegisterDisposable(new Logger(Container));
 
-        PluginInterface.UiBuilder.Draw += DrawUi;
-        PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUi;
+        _pluginInterface.UiBuilder.Draw += DrawUi;
+        _pluginInterface.UiBuilder.OpenConfigUi += DrawConfigUi;
     }
-
-    private DalamudPluginInterface PluginInterface { get; }
-    private Configuration Configuration { get; }
-    private Ui Ui { get; }
-    private ConfigurationUi ConfigurationUi { get; }
-    private Container Container { get; }
-    public string Name => "PullLogger";
 
     public void Dispose()
     {
-        PluginInterface.UiBuilder.Draw -= DrawUi;
-        PluginInterface.UiBuilder.OpenConfigUi -= DrawConfigUi;
+        _pluginInterface.UiBuilder.Draw -= DrawUi;
+        _pluginInterface.UiBuilder.OpenConfigUi -= DrawConfigUi;
         Container.DoDispose();
     }
 

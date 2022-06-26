@@ -4,6 +4,7 @@ using Dalamud.Game.Gui;
 using Dalamud.Game.Text;
 using Dalamud.Logging;
 using PullLogger.Log;
+using PullLogger.Ui;
 
 namespace PullLogger;
 
@@ -17,7 +18,7 @@ public sealed class Commands : IDisposable
     public Commands(Container container)
     {
         Container = container;
-        _prefix = $"[{container.Resolve<Plugin>().Name}] ";
+        _prefix = "[PullLogger] ";
         CommandManager = container.Resolve<CommandManager>();
         CommandManager.AddHandler(ConfigCommand, new CommandInfo(OnPPLogCommand)
         {

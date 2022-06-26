@@ -8,17 +8,17 @@ namespace PullLogger;
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
-    [NonSerialized] private DalamudPluginInterface? _pluginInterface;
     public bool OnlyInDuty = false;
     [NonSerialized] public EventHandler? OnSave = null;
 
     public List<PullLoggerConfig> PullLoggers = new();
-    public string LoggerFilePath { get; set; } = "";
+    [NonSerialized] private Action<IPluginConfiguration>? _save = null;
+    // public string LoggerFilePath { get; set; } = "";
     public int Version { get; set; } = 0;
 
-    public void Initialize(DalamudPluginInterface pluginInterface)
+    public void Initialize(Action<IPluginConfiguration> save)
     {
-        _pluginInterface = pluginInterface;
+        _save = save;
     }
 
     public void Save()
@@ -29,7 +29,7 @@ public class Configuration : IPluginConfiguration
 
     public void SaveNoEvent()
     {
-        _pluginInterface!.SavePluginConfig(this);
+        _save!(this);
     }
 }
 

@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Diagnostics;
-using Dalamud.Interface;
 using Dalamud.Interface.Internal.Notifications;
 using Dalamud.Logging;
 using Dalamud.Utility;
+using PullLogger.Interface;
 
 namespace PullLogger.Log;
 
@@ -11,32 +10,32 @@ public sealed class Logger : IDisposable
 {
     private readonly Configuration _configuration;
     private readonly Csv _csv;
-    private readonly State _state;
+    private readonly State.StateData _stateData;
     private PullLoggerConfig? _cpl;
     private PullLoggerConfig? _lastCpl;
 
     private bool _combatStartLogged;
-    private readonly UiBuilder _uiBuilder;
+    private readonly IToaster _toaster;
 
     public Logger(Container container)
     {
-        _state = container.Resolve<State>();
-        _state.PullingEvent += OnPullingEvent;
+        _stateData = container.Resolve<State.StateData>();
+        _stateData.PullingEvent += OnPullingEvent;
         _configuration = container.Resolve<Configuration>();
         _csv = container.Resolve<Csv>();
-        _state.PullLoggerChanged += StateOnPullLoggerChanged;
-        _uiBuilder = container.Resolve<UiBuilder>();
+        _stateData.PullLoggerChanged += StateDataOnPullLoggerChanged;
+        _toaster = container.Resolve<IToaster>();
 
         UpdatePullLogger();
     }
 
-    private void StateOnPullLoggerChanged(object? sender, PullLoggerConfig? e) => UpdatePullLogger();
+    private void StateDataOnPullLoggerChanged(object? sender, PullLoggerConfig? e) => UpdatePullLogger();
 
     private void UpdatePullLogger()
     {
         // var sw = new Stopwatch();
         // sw.Start();
-        var cpl = _state.CurrentPullLogger;
+        var cpl = _stateData.CurrentPullLogger;
         _cpl = cpl;
         if (cpl == null) return;
         if (_csv.FileName != cpl.FilePath) UpdateFileName(cpl);
@@ -49,11 +48,11 @@ public sealed class Logger : IDisposable
 
     public void Dispose()
     {
-        _state.PullingEvent -= OnPullingEvent;
-        _state.PullLoggerChanged -= StateOnPullLoggerChanged;
+        _stateData.PullingEvent -= OnPullingEvent;
+        _stateData.PullLoggerChanged -= StateDataOnPullLoggerChanged;
     }
 
-    private void OnPullingEvent(object? sender, State.PullingEventArgs args)
+    private void OnPullingEvent(object? sender, State.StateData.PullingEventArgs args)
     {
         if (_cpl == null) return;
         // var sw = new Stopwatch();
@@ -65,8 +64,8 @@ public sealed class Logger : IDisposable
                 _csv.Log(new PullRecord
                 {
                     EventName = PullEvent.Start,
-                    ContentName = _state.CurrentTerritoryName,
-                    TerritoryType = _state.CurrentTerritoryType
+                    ContentName = _stateData.CurrentTerritoryName,
+                    TerritoryType = _stateData.CurrentTerritoryType
                 });
 
             _combatStartLogged = true;
@@ -81,28 +80,28 @@ public sealed class Logger : IDisposable
             _csv.Log(new PullRecord
             {
                 EventName = PullEvent.End,
-                ContentName = _state.CurrentTerritoryName,
-                TerritoryType = _state.CurrentTerritoryType,
+                ContentName = _stateData.CurrentTerritoryName,
+                TerritoryType = _stateData.CurrentTerritoryType,
                 IsClear = args.IsClear
             });
 
         if (_cpl.LogRecap)
         {
-            var duration = _state.PullEnd - _state.PullStart;
+            var duration = _stateData.PullEnd - _stateData.PullStart;
             var valid = _cpl.AutoInvalidate <= 0 || duration.TotalSeconds > _cpl.AutoInvalidate;
             _csv.Log(new PullRecord
             {
                 EventName = valid ? PullEvent.Pull : PullEvent.InvalidPull,
-                Time = _state.PullStart,
+                Time = _stateData.PullStart,
                 Pull = _cpl.PullCount,
-                Duration = _state.PullEnd - _state.PullStart,
-                ContentName = _state.CurrentTerritoryName,
-                TerritoryType = _state.CurrentTerritoryType,
+                Duration = _stateData.PullEnd - _stateData.PullStart,
+                ContentName = _stateData.CurrentTerritoryName,
+                TerritoryType = _stateData.CurrentTerritoryType,
                 IsClear = args.IsClear
             });
             if (!valid)
             {
-                _uiBuilder.AddNotification(
+                _toaster.AddNotification(
                     "The last pull lasted " + duration.TotalSeconds.ToString("N1") +
                     "s, which is below the configured threshold.", "Pull was invalidated",
                     NotificationType.Warning, 6000U);

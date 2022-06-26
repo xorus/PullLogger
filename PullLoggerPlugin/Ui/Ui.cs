@@ -2,15 +2,15 @@
 using System.Globalization;
 using ImGuiNET;
 
-namespace PullLogger;
+namespace PullLogger.Ui;
 
 internal class Ui : IDisposable
 {
-    private readonly State _state;
+    private readonly State.StateData _stateData;
 
     public Ui(Container container)
     {
-        _state = container.Resolve<State>();
+        _stateData = container.Resolve<State.StateData>();
     }
 
     public void Dispose()
@@ -19,13 +19,13 @@ internal class Ui : IDisposable
 
     public void Draw()
     {
-        if (_state.CurrentPullLogger is not { Visible: true }) return;
+        if (_stateData.CurrentPullLogger is not { Visible: true }) return;
 
         if (ImGui.Begin(
                 "PullLogger Pull Counter", //, ref _state.IsPullCounterOpen, ImGuiWindowFlags.AlwaysAutoResize))
                 ImGuiWindowFlags.AlwaysAutoResize |
                 ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoResize))
-            ImGui.Text("Pull " + _state.CurrentPullLogger.PullCount.ToString(CultureInfo.InvariantCulture));
+            ImGui.Text("Pull " + _stateData.CurrentPullLogger.PullCount.ToString(CultureInfo.InvariantCulture));
 
         ImGui.End();
     }
