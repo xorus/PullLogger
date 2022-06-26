@@ -1,4 +1,7 @@
-﻿using Dalamud.Data;
+﻿// PullLogger
+// Copyright (C) 2022 Xorus
+// GNU GENERAL PUBLIC LICENSE Version 3, see LICENCE
+using Dalamud.Data;
 using Dalamud.Game;
 using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Conditions;
