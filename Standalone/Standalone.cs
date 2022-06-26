@@ -1,6 +1,6 @@
 ﻿using ImGuiScene;
+using PullLogger;
 using Standalone.Framework;
-using Standalone.PullSource;
 
 namespace Standalone;
 
@@ -8,32 +8,29 @@ internal sealed class Standalone : IPluginUiMock
 {
     public static void Main(string[] args)
     {
-        UiBootstrap.Initialize(new Standalone());
+        var container = new Container();
+        container.Register(new AppConfig());
+        container.Register<AssetReader>();
+        UiBootstrap.Initialize(container, new Standalone(container));
     }
 
     private SimpleImGuiScene? _scene;
     private readonly NotPlogon _plogon;
 
-    private Standalone()
+    private Standalone(Container container)
     {
-        _plogon = new NotPlogon();
+        _plogon = new NotPlogon(container);
     }
-    
+
     public void Initialize(SimpleImGuiScene scene)
     {
-        // scene is a little different from what you have access to in dalamud
-        // but it can accomplish the same things, and is really only used for initial setup here
-        // eg, to load an image resource for use with ImGui
         scene.OnBuildUI += Draw;
-        // saving this only so we can kill the test application by closing the window
-        // (instead of just by hitting escape)
         _scene = scene;
     }
 
 
     public void Dispose()
     {
-        // this.goatImage.Dispose();
         _plogon.Dispose();
     }
 

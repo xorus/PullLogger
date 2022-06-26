@@ -1,8 +1,9 @@
 ﻿using System.IO;
 using Dalamud.Configuration;
 using Newtonsoft.Json;
+using PullLogger;
 
-namespace Standalone;
+namespace Standalone.Framework;
 
 /**
  * most of this is lifted from dalamud PluginInterface code
@@ -12,10 +13,10 @@ public class MockPluginInterface
     private readonly string _pluginName;
     private readonly DirectoryInfo _configDirectory;
 
-    public MockPluginInterface(string pluginName, string configDirectory)
+    public MockPluginInterface(Container container, string pluginName)
     {
         _pluginName = pluginName;
-        _configDirectory = new DirectoryInfo(configDirectory);
+        _configDirectory = container.Resolve<AssetReader>().GetConfigDir();
     }
 
     private FileInfo GetConfigFile(string pluginName) =>

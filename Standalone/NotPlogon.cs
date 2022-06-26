@@ -1,9 +1,9 @@
 ﻿using System;
-using System.IO;
 using PullLogger;
 using PullLogger.Interface;
 using PullLogger.State;
 using PullLogger.Ui;
+using Standalone.Framework;
 using Standalone.Mocks;
 
 namespace Standalone;
@@ -14,19 +14,16 @@ public sealed class NotPlogon : IDisposable
     private ConfigurationUi ConfigurationUi { get; }
     private Container Container { get; }
     public string Name => "PullLogger";
-    public bool Exit = false;
+    public bool Exit;
 
-    public NotPlogon()
+    public NotPlogon(Container container)
     {
-        var pluginInterface =
-            new MockPluginInterface(Name,
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "XIVLauncher",
-                    "pluginConfigs"));
+        Container = container;
+        var pluginInterface =  new MockPluginInterface(Container, Name);
 
         Configuration = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.Initialize(pluginInterface.SavePluginConfig);
 
-        Container = new Container();
         Container.Register(Configuration);
         Container.Register(new StateData());
         Container.Register<IToaster>(new ConsoleNotification());

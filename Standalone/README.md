@@ -9,6 +9,7 @@ The goal is to allow for limited functionality even when the current version of 
 - Only works if your dalamud configuration lives in %APPDATA%\XIVLauncher
 - Cannot automatically detect the start nor end of pulls
 - Font + fontawesome is not included
+- Will not work if the plugin is was not installed and run at least once
 
 ## Todo:
 
