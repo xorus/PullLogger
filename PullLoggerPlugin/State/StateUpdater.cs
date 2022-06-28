@@ -13,7 +13,7 @@ using PullLogger.Interface;
 
 namespace PullLogger.State;
 
-public class StateUpdater: IDisposable
+public class StateUpdater : IDisposable
 {
     private readonly Condition _condition;
     private readonly Configuration _configuration;
@@ -23,6 +23,7 @@ public class StateUpdater: IDisposable
     private readonly ITerritoryResolver _territoryResolver;
 
     private readonly StateData _state;
+    private readonly ClientState _clientState;
 
     public StateUpdater(Container container)
     {
@@ -33,6 +34,7 @@ public class StateUpdater: IDisposable
         _configuration = container.Resolve<Configuration>();
         _territoryResolver = container.Resolve<ITerritoryResolver>();
         _condition = container.Resolve<Condition>();
+        _clientState = container.Resolve<ClientState>();
 
         // condition
         var condition = container.Resolve<Condition>();
@@ -45,18 +47,23 @@ public class StateUpdater: IDisposable
         _duh.EndEvent += DirectorEndEvent;
 
         // clientState
-        var clientState = container.Resolve<ClientState>();
-        clientState.TerritoryChanged += ClientStateOnTerritoryChanged;
-        ClientStateOnTerritoryChanged(this, clientState.TerritoryType);
+        _clientState.TerritoryChanged += ClientStateOnTerritoryChanged;
+        ClientStateOnTerritoryChanged(this, _clientState.TerritoryType);
         FindPullLogger();
+
+        _clientState.Logout += ClientStateOnLogout;
+        UpdateCharacter();
 
         // config
         _configuration.OnSave += OnConfigurationSave;
     }
 
+    private void ClientStateOnLogout(object? sender, EventArgs e) => _state.Character = null;
+
     public void Dispose()
     {
         _duh.EndEvent -= DirectorEndEvent;
+        _clientState.Logout -= ClientStateOnLogout;
         _container.Resolve<Framework>().Update -= OnUpdate;
         _container.Resolve<ClientState>().TerritoryChanged -= ClientStateOnTerritoryChanged;
         _configuration.OnSave -= OnConfigurationSave;
@@ -82,10 +89,23 @@ public class StateUpdater: IDisposable
         FindPullLogger();
     }
 
+    private void UpdateCharacter()
+    {
+        if (_clientState.LocalPlayer is null)
+        {
+            _state.Character = null;
+            return;
+        }
+
+        _state.Character = _clientState.LocalPlayer.Name + "@" +
+                           (_clientState.LocalPlayer.HomeWorld.GameData?.Name ?? "");
+    }
+
     private void FindPullLogger()
     {
         var oldPl = _state.CurrentPullLogger;
-        _state.CurrentPullLogger = _configuration.PullLoggers.Find(x => x.TerritoryType.Equals(_state.CurrentTerritoryType));
+        _state.CurrentPullLogger =
+            _configuration.PullLoggers.Find(x => x.TerritoryType.Equals(_state.CurrentTerritoryType));
         if (oldPl != _state.CurrentPullLogger) _state.InvokePullLoggerChanged();
     }
 
@@ -110,6 +130,7 @@ public class StateUpdater: IDisposable
 
     private void OnUpdate(Framework framework)
     {
+        if (_state.Character is null) UpdateCharacter();
         if (_state.CurrentPullLogger == null) return;
         var prevInCombat = _state.Pulling;
 

@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.ImGuiFileDialog;
+using Dalamud.Logging;
 using ImGuiNET;
 using PullLogger.Events;
 using PullLogger.Interface;
@@ -19,16 +22,10 @@ public class ConfigurationUi
 
     private int _selected;
     private bool _visible = false;
-    private FileDialogManager Fdm { get; }
-
-    public ConfigurationUi(Container container)
-    {
-        _configuration = container.Resolve<Configuration>();
-        _stateData = container.Resolve<State.StateData>();
-        _resolver = container.Resolve<ITerritoryResolver>();
-
-        Fdm = new FileDialogManager();
-    }
+    private readonly ConfirmPopup _removeConfirmPopup;
+    private bool _editPullCount;
+    private bool _editTerritoryType;
+    private PullLoggerConfig? _selectedToConfirm = null;
 
     public bool Visible
     {
@@ -36,39 +33,29 @@ public class ConfigurationUi
         set => _visible = value;
     }
 
+    private FileDialogManager Fdm { get; }
+
+    public ConfigurationUi(Container container)
+    {
+        _configuration = container.Resolve<Configuration>();
+        _stateData = container.Resolve<State.StateData>();
+        _resolver = container.Resolve<ITerritoryResolver>();
+        _removeConfirmPopup = new ConfirmPopup(
+            "Remove confirmation", RemoveModalContent,
+            "DELETE", RemoveModalConfirm
+        );
+
+        Fdm = new FileDialogManager();
+    }
+
+
     // private bool _removeConfirm = false;
 
-    private bool _removeConfirmationPopup;
-
-    private void RemoveModalContent(PullLoggerConfig selected)
-    {
-        ImGui.Text("Are you sure you want to remove this instance configuration?\n" +
-                   "Logs will not be affected.");
-        ImGui.Text("Instance configuration:");
-        ImGui.Indent();
-        ImGui.Text("#" + selected.TerritoryType + " - " + _resolver.Name(selected.TerritoryType));
-        ImGui.Text(selected.PullCount + " pulls");
-        ImGui.Unindent();
-
-        ImGui.Separator();
-
-        var w = ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X;
-        ImGui.SetItemDefaultFocus();
-        if (ImGui.Button("No", new Vector2(w / 2, 0))) _removeConfirmationPopup = false;
-        ImGui.SameLine();
-        if (ImGui.Button("DELETE", new Vector2(w / 2, 0)))
-        {
-            _configuration.PullLoggers.RemoveAt(_selected);
-            _configuration.Save();
-            _selected = Math.Max(0, _selected - 1);
-            ImGui.CloseCurrentPopup();
-        }
-    }
+    private const string NamePattern = @"^(?'name'[A-Z][a-z'\-]{1,14} [A-Z][a-z'\-]{1,14})@(?'world'[A-Z][a-z\'-]+)$";
+    private bool _invalidName = false;
 
     public void Draw()
     {
-        const string deletePopup = "Remove confirmation";
-
         var len = _configuration.PullLoggers.Count;
         var selectionValid = len > 0 && _selected >= 0 && _selected < len;
         PullLoggerConfig? selected = null;
@@ -77,12 +64,43 @@ public class ConfigurationUi
 
         if (!Visible) return;
 
+        if (_configuration.PlayerNameWorld == null && _stateData.Character != null)
+        {
+            _configuration.PlayerNameWorld = _stateData.Character;
+            _configuration.Save();
+        }
+
         if (ImGui.Begin("PullLogger configuration", ref _visible, ImGuiWindowFlags.AlwaysAutoResize))
         {
             ImGui.TextWrapped(
                 "This plugin will log all your future pulls for your own statistical analysis purposes.\n" +
                 "It can log the start, end and duration of your pulls, as well as the territory you pulled in.\n");
             ImGui.Separator();
+
+            if (_stateData.Character is null)
+            {
+                ImGui.Text("Not logged in or standalone mode detected.");
+
+                var name = _configuration.PlayerNameWorld ?? "";
+                ImGui.InputText("Character Name", ref name, 100);
+
+                if (ImGui.IsItemEdited())
+                {
+                    var match = Regex.Match(name, NamePattern);
+
+                    if (match.Success)
+                    {
+                        _configuration.PlayerNameWorld = match.Groups["name"] + "@" + match.Groups["world"];
+                        _configuration.Save();
+                        _invalidName = false;
+                    }
+                    else _invalidName = true;
+                }
+
+                if (_invalidName) ImGui.Text("must respect format Player Name@World");
+
+                ImGui.Separator();
+            }
 
             const int firstRowWidth = 100;
             // const int iconBtnWidth = 35;
@@ -93,23 +111,14 @@ public class ConfigurationUi
             {
                 if (selected != null)
                 {
-                    var center = ImGui.GetMainViewport().GetCenter();
-                    ImGui.SetNextWindowPos(center, ImGuiCond.Always, new Vector2(0.5f, 0.5f));
-                    if (ImGui.BeginPopupModal(deletePopup, ref _removeConfirmationPopup,
-                            ImGuiWindowFlags.AlwaysAutoResize))
-                    {
-                        RemoveModalContent(selected);
-                        ImGui.EndPopup();
-                    }
+                    _selectedToConfirm = selected;
+                    _removeConfirmPopup.Draw();
                 }
 
-                ImGui.TableSetupColumn("AAA", ImGuiTableColumnFlags.WidthFixed, firstRowWidth);
-                ImGui.TableSetupColumn("BBB", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableSetupColumn("Instances", ImGuiTableColumnFlags.WidthFixed, firstRowWidth);
+                ImGui.TableSetupColumn("Instance configuration", ImGuiTableColumnFlags.WidthStretch);
 
-                ImGui.TableNextColumn();
-                ImGui.TableHeader("Instances");
-                ImGui.TableNextColumn();
-                ImGui.TableHeader("Instance configuration");
+                ImGui.TableHeadersRow();
 
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
@@ -146,8 +155,7 @@ public class ConfigurationUi
                 if (ImGui.Button(FontAwesomeIcon.Minus.ToIconString(), new Vector2(w / 2, 0)) &&
                     selectionValid)
                 {
-                    _removeConfirmationPopup = true;
-                    ImGui.OpenPopup(deletePopup);
+                    _removeConfirmPopup.Open();
                 }
 
                 if (!selectionValid) ImGui.PopStyleVar();
@@ -195,9 +203,6 @@ public class ConfigurationUi
         Fdm.Draw();
         ImGui.End();
     }
-
-    private bool _editPullCount;
-    private bool _editTerritoryType;
 
     private static void Label(string str)
     {
@@ -333,5 +338,23 @@ public class ConfigurationUi
                 _configuration.Save();
             }
         }
+    }
+
+    private void RemoveModalContent()
+    {
+        ImGui.Text("Are you sure you want to remove this instance configuration?\n" +
+                   "Logs will not be affected.");
+        ImGui.Text("Instance configuration:");
+        ImGui.Indent();
+        ImGui.Text("#" + _selectedToConfirm.TerritoryType + " - " + _resolver.Name(_selectedToConfirm.TerritoryType));
+        ImGui.Text(_selectedToConfirm.PullCount + " pulls");
+        ImGui.Unindent();
+    }
+
+    private void RemoveModalConfirm()
+    {
+        _configuration.PullLoggers.RemoveAt(_selected);
+        _configuration.Save();
+        _selected = Math.Max(0, _selected - 1);
     }
 }

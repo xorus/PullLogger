@@ -18,4 +18,5 @@ public class StateData
     public PullLoggerConfig? CurrentPullLogger { get; set; }
     public void InvokePullLoggerChanged() => PullLoggerChanged?.Invoke(this, CurrentPullLogger);
     public void InvokePullingEvent(PullingEventArgs args) => PullingEvent?.Invoke(this, args);
+    public string? Character { get; set; }
 }

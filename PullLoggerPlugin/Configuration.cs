@@ -11,10 +11,16 @@ public class Configuration : IPluginConfiguration
     public bool OnlyInDuty = false;
     [NonSerialized] public EventHandler? OnSave = null;
 
+    public string? PlayerNameWorld;
+
     public List<PullLoggerConfig> PullLoggers = new();
+
     [NonSerialized] private Action<IPluginConfiguration>? _save = null;
+
     // public string LoggerFilePath { get; set; } = "";
     public int Version { get; set; } = 0;
+
+    public string? LastImportDir { get; set; } = null;
 
     public void Initialize(Action<IPluginConfiguration> save)
     {

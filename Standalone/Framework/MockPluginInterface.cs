@@ -37,6 +37,13 @@ public class MockPluginInterface
             });
     }
 
+    public string GetPluginConfigDir()
+    {
+        var dir = GetDirectoryPath(_pluginName);
+        if (!dir.Exists) dir.Create();
+        return dir.FullName;
+    }
+
     public string GetDirectory(string pluginName)
     {
         try

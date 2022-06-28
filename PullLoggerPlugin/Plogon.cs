@@ -1,6 +1,9 @@
 ﻿// PullLogger
 // Copyright (C) 2022 Xorus
 // GNU GENERAL PUBLIC LICENSE Version 3, see LICENCE
+
+using System;
+using System.Diagnostics;
 using Dalamud.Data;
 using Dalamud.Game;
 using Dalamud.Game.ClientState;
@@ -8,9 +11,12 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Party;
 using Dalamud.Game.Command;
 using Dalamud.Game.Gui;
+using Dalamud.Logging;
 using Dalamud.Plugin;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore;
 using PullLogger.Dalamud;
+using PullLogger.Db;
 using PullLogger.Events;
 using PullLogger.Interface;
 using PullLogger.Log;
@@ -43,6 +49,7 @@ public sealed class Plogon : IDalamudPlugin
         Configuration = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         Configuration.Initialize(_pluginInterface.SavePluginConfig);
 
+        var sw = new Stopwatch();
         Container = new Container();
         Container.Register(partyList);
         Container.Register(framework);
@@ -53,6 +60,9 @@ public sealed class Plogon : IDalamudPlugin
         Container.Register(dataManager);
         Container.Register(pluginInterface.UiBuilder);
         Container.Register(chat);
+        Container.Register(new StateData());
+
+        Container.Register(new DbManager(Container, pluginInterface.GetPluginConfigDirectory()));
         Container.Register<IToaster>(new DalamudNotification(pluginInterface.UiBuilder));
 
         // you might normally want to embed resources and load them from the manifest stream
@@ -60,23 +70,24 @@ public sealed class Plogon : IDalamudPlugin
         // var goatImage = PluginInterface.UiBuilder.LoadImage(imagePath);
 
         Container.RegisterDisposable(new EndViaDirectorUpdateHook());
-        Container.Register<ITerritoryResolver>(new TerritoryResolver(Container));
-        Container.Register(new StateData());
-        Container.Register(new StateUpdater(Container));
 
-        Ui = new Ui.Ui(Container);
-        ConfigurationUi = new ConfigurationUi(Container);
+        var teri = new TerritoryResolver(Container);
+        teri.SaveAll();
+        Container.Register<ITerritoryResolver>(teri);
+        Container.Register<StateUpdater>();
 
-        Container.RegisterDisposable(Ui);
-        Container.Register(ConfigurationUi);
-        Container.RegisterDisposable(new Commands(Container));
-
-        Container.Register(new Csv());
-        Container.RegisterDisposable(new Logger(Container));
+        Ui = Container.RegisterDisposable<Ui.Ui>();
+        DbUi = Container.Register<PullDbUi>();
+        ConfigurationUi = Container.Register<ConfigurationUi>();
+        Container.RegisterDisposable<Commands>();
+        Container.Register<Csv>();
+        Container.RegisterDisposable<Logger>();
 
         _pluginInterface.UiBuilder.Draw += DrawUi;
         _pluginInterface.UiBuilder.OpenConfigUi += DrawConfigUi;
     }
+
+    private PullDbUi DbUi { get; set; }
 
     public void Dispose()
     {
@@ -88,6 +99,7 @@ public sealed class Plogon : IDalamudPlugin
     private void DrawUi()
     {
         Ui.Draw();
+        DbUi.Draw();
         ConfigurationUi.Draw();
     }
 

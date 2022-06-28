@@ -2,15 +2,26 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Dalamud.Logging;
+using PullLogger.Db;
+using PullLogger.State;
 
 namespace PullLogger.Log;
 
 // https://johandorper.com/log/thread-safe-file-writing-csharp
 public sealed class Csv : ILogBackend
 {
+    private readonly Database _db;
+    private readonly StateData _sd;
     public string FileName { get; set; } = "";
+
+    public Csv(Container container)
+    {
+        _sd = container.Resolve<StateData>();
+        _db = container.Resolve<Database>();
+    }
 
     private static async Task LogAsync(string fileName, PullRecord record)
     {
@@ -41,6 +52,24 @@ public sealed class Csv : ILogBackend
         // avoid lag caused by slow IO like writing the log to a NAS
         // TODO: handle onedrive errors
         LogAsync(FileName, record).ConfigureAwait(false);
+        DbLog(record);
+    }
+
+    // will eventually replace the whole logger thing
+    private void DbLog(PullRecord record)
+    {
+        _db.Pulls.Add(new Pull()
+        {
+            EventName = record.EventName,
+            Duration = record.Duration,
+            Character = _sd.Character ?? "<unknown>",
+            Time = record.Time ?? DateTime.Now,
+            ContentName = record.ContentName,
+            TerritoryType = record.TerritoryType,
+            RealPullNumber = record.Pull,
+            IsClear = record.IsClear
+        });
+        _db.SaveChangesAsync().ConfigureAwait(false);
     }
 
     private static string EventToString(PullEvent eventName)
@@ -49,7 +78,7 @@ public sealed class Csv : ILogBackend
         {
             PullEvent.Start => "start",
             PullEvent.End => "end",
-            PullEvent.Pull =>"pull",
+            PullEvent.Pull => "pull",
             PullEvent.RetconnedPull => "retcon",
             PullEvent.InvalidPull => "invalid",
             _ => throw new ArgumentOutOfRangeException(nameof(eventName), eventName, null)
@@ -79,6 +108,25 @@ public sealed class Csv : ILogBackend
         throw new RetconError { Reason = "no relevant pull found" };
     }
 
-    public void Retcon() => ReplaceLastTypeBy("pull", "retcon");
-    public void UnRetcon() => ReplaceLastTypeBy("retcon", "pull");
+    public void Retcon()
+    {
+        ReplaceLastTypeBy("pull", "retcon");
+        var last = _db.Pulls.AsQueryable().Where(x => x.EventName == PullEvent.Pull).OrderByDescending(x => x.Time)
+            .First();
+        if (last == null) throw new RetconError { Reason = "no relevant pull found" };
+        last.EventName = PullEvent.RetconnedPull;
+        _db.SaveChangesAsync();
+    }
+
+    public void UnRetcon()
+    {
+        ReplaceLastTypeBy("retcon", "pull");
+
+        var last = _db.Pulls.AsQueryable().Where(x => x.EventName == PullEvent.RetconnedPull)
+            .OrderByDescending(x => x.Time)
+            .First();
+        if (last == null) throw new RetconError { Reason = "no relevant pull found" };
+        last.EventName = PullEvent.Pull;
+        _db.SaveChangesAsync();
+    }
 }

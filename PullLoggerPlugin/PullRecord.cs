@@ -1,22 +1,15 @@
 ﻿using System;
+using PullLogger.Db;
 
-namespace PullLogger;
-
-public readonly record struct PullRecord(
-    PullEvent EventName,
-    DateTime? Time,
-    int? Pull,
-    ushort? TerritoryType,
-    TimeSpan? Duration,
-    string? ContentName,
-    bool? IsClear
-);
-
-public enum PullEvent
+namespace PullLogger
 {
-    Start,
-    End,
-    Pull,
-    RetconnedPull,
-    InvalidPull
+    public readonly record struct PullRecord(
+        PullEvent EventName,
+        DateTime? Time,
+        int? Pull,
+        ushort? TerritoryType,
+        TimeSpan? Duration,
+        string? ContentName,
+        bool? IsClear
+    );
 }

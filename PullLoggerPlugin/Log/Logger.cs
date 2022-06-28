@@ -2,7 +2,9 @@
 using Dalamud.Interface.Internal.Notifications;
 using Dalamud.Logging;
 using Dalamud.Utility;
+using PullLogger.Db;
 using PullLogger.Interface;
+using PullLogger.State;
 
 namespace PullLogger.Log;
 
@@ -10,21 +12,23 @@ public sealed class Logger : IDisposable
 {
     private readonly Configuration _configuration;
     private readonly Csv _csv;
-    private readonly State.StateData _stateData;
+    private readonly StateData _stateData;
     private PullLoggerConfig? _cpl;
     private PullLoggerConfig? _lastCpl;
 
     private bool _combatStartLogged;
     private readonly IToaster _toaster;
+    private readonly Database _db;
 
     public Logger(Container container)
     {
-        _stateData = container.Resolve<State.StateData>();
+        _stateData = container.Resolve<StateData>();
         _stateData.PullingEvent += OnPullingEvent;
         _configuration = container.Resolve<Configuration>();
         _csv = container.Resolve<Csv>();
         _stateData.PullLoggerChanged += StateDataOnPullLoggerChanged;
         _toaster = container.Resolve<IToaster>();
+        _db = container.Resolve<Database>();
 
         UpdatePullLogger();
     }
@@ -52,7 +56,7 @@ public sealed class Logger : IDisposable
         _stateData.PullLoggerChanged -= StateDataOnPullLoggerChanged;
     }
 
-    private void OnPullingEvent(object? sender, State.StateData.PullingEventArgs args)
+    private void OnPullingEvent(object? sender, StateData.PullingEventArgs args)
     {
         if (_cpl == null) return;
         // var sw = new Stopwatch();

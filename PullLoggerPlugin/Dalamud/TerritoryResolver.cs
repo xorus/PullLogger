@@ -1,4 +1,6 @@
-﻿using Dalamud.Data;
+﻿using System.Collections.Generic;
+using Dalamud.Data;
+using Dalamud.Logging;
 using Lumina.Excel;
 using Lumina.Excel.GeneratedSheets;
 using PullLogger.Interface;
@@ -25,5 +27,20 @@ public class TerritoryResolver : ITerritoryResolver
         var placeName = row.PlaceName.Value?.Name;
         if (placeName != null && placeName != "") return placeName;
         return "<unknown place name>";
+    }
+
+    public void SaveAll()
+    {
+        if (_territoryTypeSheet is null) return;
+        var found = new Dictionary<ushort, string>();
+        foreach (var row in _territoryTypeSheet)
+        {
+            var contentFinderName = row.ContentFinderCondition.Value?.Name;
+            if (contentFinderName != null && contentFinderName != "")
+            {
+                found.Add((ushort)row.RowId, contentFinderName);
+                PluginLog.Information((ushort)row.RowId + " - " + contentFinderName);
+            }
+        }
     }
 }
